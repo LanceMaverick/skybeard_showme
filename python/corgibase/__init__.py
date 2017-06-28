@@ -1,6 +1,7 @@
 #corgibase plugin
 # Adapted from work by LanceMaverick
 import random
+import string
 import logging
 from urllib.request import urlopen
 import telepot
@@ -21,6 +22,10 @@ class CorgiBase(BeardChatHandler):
                 'send_corgi', 
                 'send a random corgi image from reddit'),
             (
+                regex_predicate('skybeard (give|show) me ', lower = True), 
+                'send_any', 
+                'send a random corgi image from reddit'),
+            (
                 regex_predicate('(give|show) me sausage dogs', lower = True), 
                 'send_sausage', 
                 'send a random dachshund image from reddit'),]
@@ -30,6 +35,13 @@ class CorgiBase(BeardChatHandler):
 
     async def send_sausage(self, msg):
         await self.send_reddit_rand(msg, 'dachshund')
+    
+    async def send_any(self, msg):
+        text = msg['text']
+        translator = str.maketrans('', '', string.punctuation)
+        sub = text.split(' ')[-1].translate(translator)
+        await self.send_reddit_rand(msg, sub)
+
 
 
     async def send_reddit_rand(self, msg, sub):
@@ -41,18 +53,18 @@ class CorgiBase(BeardChatHandler):
                             )
         subreddit = reddit.subreddit(sub)
         hot_posts = subreddit.top(time_filter = 'all', limit=100)
-        url_list = [post.url for post in hot_posts]
+        post_list = [post for post in hot_posts]
         
         
         try:
-            choice = random.choice(url_list)
+            choice = random.choice(post_list)
             extensions = ['.jpg', '.jpeg', '.png']
-            if any (ext in choice for ext in extensions):       
+            if any (ext in choice.url for ext in extensions):       
                 await self.sender.sendPhoto((
-                    choice.split("/")[-1], 
-                    urlopen(choice)))
+                    choice.url.split("/")[-1], 
+                    urlopen(choice.url)), caption = choice.title)
             else:
-                await self.sender.sendMessage(choice)
+                await self.sender.sendMessage(choice.title+'\n'+choice.url)
         except Exception as e:
             logger.error(e, choice)
             await self.sender.sendPhoto((
